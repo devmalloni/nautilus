@@ -1,0 +1,22 @@
+definitions:
+  - id: on_created
+    name: on entity created
+    description: Triggered when an entity is created
+    payload_scheme: |
+      {
+        "type": "object",
+        "properties": {
+          "entity_id": {
+            "type": "string",
+            "description": "The ID of the created entity"
+          }
+        }
+      }
+    http_request_method: "POST"
+    total_attempts: 10
+    configs:
+      - id: default
+        tag: global
+        url: https://localhost:3333/webhook
+        client_secret: your_client_secret_here
+        # client_rsa_private_key: your_rsa_private_key_here
