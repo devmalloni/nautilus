@@ -39,6 +39,9 @@ func (p *SqlPersister) Migrate(forceVersion *int, databaseName string, config *p
 	} else {
 		err = m.Up()
 	}
+	if err == migrate.ErrNoChange {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
