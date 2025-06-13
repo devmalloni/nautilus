@@ -6,7 +6,7 @@ CREATE TABLE hook_definitions (
     description TEXT,
     payload_scheme JSONB,
     http_request_method VARCHAR(10) NOT NULL,
-    total_attempts INT NOT NULL,
+    total_attempts INT NOT NULL
 );
 
 CREATE TABLE hook_configurations (
