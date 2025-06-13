@@ -15,7 +15,7 @@ CREATE TABLE hook_configurations (
     tag VARCHAR(255) NOT NULL,
     hook_definition_id TEXT NOT NULL REFERENCES hook_definitions(id) ON DELETE CASCADE,
     url VARCHAR(255) NOT NULL,
-    client_secret TEXT NOT NULL
+    client_secret TEXT NOT NULL,
     client_rsa_private_key TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     
