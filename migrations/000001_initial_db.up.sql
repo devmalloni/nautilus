@@ -7,6 +7,7 @@ CREATE TABLE hook_definitions (
     payload_scheme JSONB,
     http_request_method VARCHAR(10) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    total_attempts INT NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
