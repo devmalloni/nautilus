@@ -11,7 +11,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
-// //go:embed migrations/*.sql
+//go:embed migrations/*.sql
 var migrationsFolder embed.FS
 
 func (p *SqlPersister) Migrate(forceVersion *int, databaseName string, config *postgres.Config) error {
