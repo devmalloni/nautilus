@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -52,10 +53,13 @@ func (p *Nautilus) LoadFromYamlBytes(ctx context.Context, data []byte) error {
 			for _, conf := range def.Configurations {
 				configuration := &HookConfiguration{
 					ID:                  conf.ID,
+					HookDefinitionID:    def.ID,
+					CreatedAt:           time.Now().UTC(),
 					Tag:                 conf.Tag,
 					URL:                 conf.URL,
 					ClientSecret:        conf.ClientSecret,
 					ClientRSAPrivateKey: conf.ClientRSAPrivateKey,
+					HookDefinition:      definition,
 				}
 				configs = append(configs, configuration)
 			}
