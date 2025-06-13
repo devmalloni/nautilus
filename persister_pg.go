@@ -174,10 +174,10 @@ func (p *SqlPersister) FindHookConfigurations(ctx context.Context) ([]*HookConfi
 
 func (p *SqlPersister) WriteHookConfiguration(ctx context.Context, c *HookConfiguration) error {
 	_, err := p.db.NamedExecContext(ctx,
-		`INSERT INTO hook_configurations (id, hook_definition_id, url, tag, client_secret, client_rsa_private_key created_at)
+		`INSERT INTO hook_configurations (id, hook_definition_id, url, tag, client_secret, client_rsa_private_key, created_at)
 			VALUES (:id, :hook_definition_id, :url, :tag, :client_secret, :client_rsa_private_key, :created_at)
 			ON CONFLICT (id) 
-			DO UPDATE SET url = excluded.url, tag = excluded.tag, client_secret = excluded.client_secret, client_rsa_private_key = excluded.client_rsa_private_key created_at = excluded.created_at;`, c)
+			DO UPDATE SET url = excluded.url, tag = excluded.tag, client_secret = excluded.client_secret, client_rsa_private_key = excluded.client_rsa_private_key, created_at = excluded.created_at;`, c)
 	if err != nil {
 		return err
 	}
