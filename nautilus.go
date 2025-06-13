@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/devmalloni/nautilus/x"
 )
@@ -15,15 +14,17 @@ const (
 )
 
 type (
+	NautilusScheduler interface {
+		Start(ctx context.Context, scheduleCh chan *HookSchedule, errCh chan<- error)
+	}
 	Nautilus struct {
-		jsonSchemaValidator  JSchemaValidator
-		persister            NautilusPersister
-		httpClient           *http.Client
-		workersCount         int
-		scheduleBufferSize   int
-		skipScheduleInterval time.Duration
-		runnerInterval       time.Duration
-		errCh                chan<- error
+		jsonSchemaValidator JSchemaValidator
+		persister           NautilusPersister
+		httpClient          *http.Client
+		workersCount        int
+		scheduleBufferSize  int
+		scheduler           NautilusScheduler
+		errCh               chan<- error
 	}
 )
 
@@ -51,26 +52,7 @@ func (p *Nautilus) Run(ctx context.Context) {
 		go worker(ctx, scheduleCh, p.errCh)
 	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(p.runnerInterval):
-			now := time.Now().UTC()
-			schedules, err := p.persister.FindScheduledHookSchedules(ctx)
-			if err != nil {
-				reportError(p.errCh, err)
-			}
-
-			for i := range schedules {
-				if schedules[i].UpdatedAt != nil && schedules[i].UpdatedAt.After(now.Add(-p.skipScheduleInterval)) {
-					continue
-				}
-
-				scheduleCh <- schedules[i]
-			}
-		}
-	}
+	p.scheduler.Start(ctx, scheduleCh, p.errCh)
 }
 
 func (p *Nautilus) MustSchedule(ctx context.Context,

@@ -30,14 +30,16 @@ func TestNautilus_Run(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	persister := NewInMemoryPersister()
 	n := New(
-		WithPersister(NewInMemoryPersister()),
+		WithPersister(persister),
 		WithJsonSchemaValidator(NewStandardJsonSchemaValidator()),
 		WithHttpClient(http.DefaultClient),
 		WithWorkersCount(5),
 		WithScheduleBufferSize(100),
-		WithSkipScheduleInterval(5*time.Second),
-		WithRunnerInterval(100*time.Millisecond),
+		WithScheduler(NewPollScheduler(persister,
+			WithSkipScheduleInterval(1*time.Second),
+			WithRunnerInterval(100*time.Millisecond))),
 		WithErrCh(errCh))
 
 	err := n.RegisterDefinitions(ctx, &HookDefinition{
