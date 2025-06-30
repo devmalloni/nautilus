@@ -2,6 +2,7 @@ package nautilus
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -121,6 +122,10 @@ func (p *SqlPersister) WriteHookSchedule(ctx context.Context, c *HookSchedule, e
 func (p *SqlPersister) FindHookConfiguration(ctx context.Context, hookDefinitionID string, tag HookConfigurationTag) (*HookConfiguration, error) {
 	hookConfiguration := &HookConfiguration{}
 	err := p.db.GetContext(ctx, hookConfiguration, "SELECT * FROM hook_configurations WHERE hook_definition_id = $1 AND tag = $2", hookDefinitionID, tag)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+
 	if err != nil {
 		return nil, err
 	}

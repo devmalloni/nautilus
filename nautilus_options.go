@@ -2,7 +2,6 @@ package nautilus
 
 import (
 	"net/http"
-	"time"
 )
 
 func WithPersister(persister NautilusPersister) func(*Nautilus) {
@@ -29,15 +28,9 @@ func WithScheduleBufferSize(scheduleBufferSize int) func(*Nautilus) {
 	}
 }
 
-func WithSkipScheduleInterval(skipScheduleInterval time.Duration) func(*Nautilus) {
+func WithScheduler(scheduler NautilusScheduler) func(*Nautilus) {
 	return func(n *Nautilus) {
-		n.skipScheduleInterval = skipScheduleInterval
-	}
-}
-
-func WithRunnerInterval(runnerInterval time.Duration) func(*Nautilus) {
-	return func(n *Nautilus) {
-		n.runnerInterval = runnerInterval
+		n.scheduler = scheduler
 	}
 }
 
@@ -55,18 +48,21 @@ func WithJsonSchemaValidator(validator JSchemaValidator) func(*Nautilus) {
 
 func New(options ...func(*Nautilus)) *Nautilus {
 	n := &Nautilus{
-		jsonSchemaValidator:  NewStandardJsonSchemaValidator(),
-		persister:            NewInMemoryPersister(),
-		httpClient:           http.DefaultClient,
-		workersCount:         5, // default values
-		scheduleBufferSize:   100,
-		skipScheduleInterval: 40 * time.Second,
-		runnerInterval:       10 * time.Second,
-		errCh:                nil,
+		jsonSchemaValidator: NewStandardJsonSchemaValidator(),
+		persister:           NewInMemoryPersister(),
+		httpClient:          http.DefaultClient,
+		workersCount:        5, // default values
+		scheduleBufferSize:  100,
+		errCh:               nil,
 	}
 
 	for i := range options {
 		options[i](n)
+	}
+
+	// default scheduler
+	if n.scheduler == nil {
+		n.scheduler = NewPollScheduler(n.persister)
 	}
 
 	return n

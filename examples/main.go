@@ -29,8 +29,6 @@ func main() {
 		nautilus.WithHttpClient(http.DefaultClient),
 		nautilus.WithWorkersCount(5),
 		nautilus.WithScheduleBufferSize(100),
-		nautilus.WithSkipScheduleInterval(5*time.Second),
-		nautilus.WithRunnerInterval(2*time.Second),
 		nautilus.WithErrCh(errCh))
 
 	err := n.LoadFromYamlFile(context.Background(), "config.yaml")

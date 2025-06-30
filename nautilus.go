@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/devmalloni/nautilus/x"
 )
@@ -15,15 +14,17 @@ const (
 )
 
 type (
+	NautilusScheduler interface {
+		Start(ctx context.Context, scheduleCh chan *HookSchedule, errCh chan<- error)
+	}
 	Nautilus struct {
-		jsonSchemaValidator  JSchemaValidator
-		persister            NautilusPersister
-		httpClient           *http.Client
-		workersCount         int
-		scheduleBufferSize   int
-		skipScheduleInterval time.Duration
-		runnerInterval       time.Duration
-		errCh                chan<- error
+		jsonSchemaValidator JSchemaValidator
+		persister           NautilusPersister
+		httpClient          *http.Client
+		workersCount        int
+		scheduleBufferSize  int
+		scheduler           NautilusScheduler
+		errCh               chan<- error
 	}
 )
 
@@ -51,39 +52,83 @@ func (p *Nautilus) Run(ctx context.Context) {
 		go worker(ctx, scheduleCh, p.errCh)
 	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(p.runnerInterval):
-			now := time.Now().UTC()
-			schedules, err := p.persister.FindScheduledHookSchedules(ctx)
-			if err != nil {
-				reportError(p.errCh, err)
-			}
+	p.scheduler.Start(ctx, scheduleCh, p.errCh)
+}
 
-			for i := range schedules {
-				if schedules[i].UpdatedAt != nil && schedules[i].UpdatedAt.After(now.Add(-p.skipScheduleInterval)) {
-					continue
-				}
-
-				scheduleCh <- schedules[i]
-			}
-		}
+// TrySchedule is a convenience method that checks if a hook configuration exists
+// before scheduling a hook. If the configuration does not exist, it returns nil.
+func (p *Nautilus) TrySchedule(ctx context.Context,
+	id *string,
+	hookDefinitionID string,
+	tag HookConfigurationTag,
+	payload json.RawMessage) error {
+	_, err := p.persister.FindHookConfiguration(ctx, hookDefinitionID, tag)
+	if err == ErrNotFound {
+		return nil
 	}
+
+	if err != nil {
+		return err
+	}
+
+	_, err = p.ScheduleJSON(ctx, id, hookDefinitionID, tag, payload)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *Nautilus) TryScheduleJSON(ctx context.Context,
+	id *string,
+	hookDefinitionID string,
+	tag HookConfigurationTag,
+	payload any) error {
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	return p.TrySchedule(ctx, id, hookDefinitionID, tag, jsonPayload)
+}
+
+func (p *Nautilus) MustScheduleJSON(ctx context.Context,
+	id *string,
+	hookDefinitionID string,
+	tag HookConfigurationTag,
+	payload any) *HookSchedule {
+	schedule, err := p.ScheduleJSON(ctx, id, hookDefinitionID, tag, payload)
+	if err != nil {
+		panic(err)
+	}
+
+	return schedule
+}
+
+func (p *Nautilus) ScheduleJSON(ctx context.Context,
+	id *string,
+	hookDefinitionID string,
+	tag HookConfigurationTag,
+	payload any) (*HookSchedule, error) {
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.Schedule(ctx, id, hookDefinitionID, tag, jsonPayload)
 }
 
 func (p *Nautilus) MustSchedule(ctx context.Context,
 	id *string,
 	hookDefinitionID string,
 	tag HookConfigurationTag,
-	payload json.RawMessage) (*HookSchedule, error) {
+	payload json.RawMessage) *HookSchedule {
 	schedule, err := p.Schedule(ctx, id, hookDefinitionID, tag, payload)
 	if err != nil {
 		panic(err)
 	}
 
-	return schedule, nil
+	return schedule
 }
 
 func (p *Nautilus) Schedule(ctx context.Context,
@@ -123,7 +168,7 @@ func (p *Nautilus) Schedule(ctx context.Context,
 	return schedule, nil
 }
 
-func (p *Nautilus) Execute(ctx context.Context,
+func (p *Nautilus) ScheduleAndExecute(ctx context.Context,
 	id *string,
 	hookDefinitionID string,
 	tag HookConfigurationTag,

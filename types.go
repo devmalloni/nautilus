@@ -120,9 +120,10 @@ type (
 	}
 
 	HookExecutionData struct {
-		ID     string          `json:"id,omitempty"`
-		SentAt time.Time       `json:"sent_at,omitempty"`
-		Data   json.RawMessage `json:"data,omitempty"`
+		ID               string          `json:"id,omitempty"`
+		SentAt           time.Time       `json:"sent_at,omitempty"`
+		HookDefinitionID string          `json:"hook_definition_id,omitempty"`
+		Data             json.RawMessage `json:"data,omitempty"`
 	}
 )
 
@@ -280,9 +281,10 @@ func (p *HookSchedule) Execute(ctx context.Context, executionID string, client *
 	}
 
 	requestData := HookExecutionData{
-		ID:     e.HookScheduleID,
-		SentAt: time.Now().UTC(),
-		Data:   p.Payload,
+		ID:               e.HookScheduleID,
+		SentAt:           time.Now().UTC(),
+		HookDefinitionID: p.HookConfiguration.HookDefinitionID,
+		Data:             p.Payload,
 	}
 
 	b, err := json.Marshal(&requestData)
