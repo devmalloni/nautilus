@@ -55,17 +55,80 @@ func (p *Nautilus) Run(ctx context.Context) {
 	p.scheduler.Start(ctx, scheduleCh, p.errCh)
 }
 
+// TrySchedule is a convenience method that checks if a hook configuration exists
+// before scheduling a hook. If the configuration does not exist, it returns nil.
+func (p *Nautilus) TrySchedule(ctx context.Context,
+	id *string,
+	hookDefinitionID string,
+	tag HookConfigurationTag,
+	payload json.RawMessage) error {
+	_, err := p.persister.FindHookConfiguration(ctx, hookDefinitionID, tag)
+	if err == ErrNotFound {
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
+
+	_, err = p.ScheduleJSON(ctx, id, hookDefinitionID, tag, payload)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *Nautilus) TryScheduleJSON(ctx context.Context,
+	id *string,
+	hookDefinitionID string,
+	tag HookConfigurationTag,
+	payload any) error {
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	return p.TrySchedule(ctx, id, hookDefinitionID, tag, jsonPayload)
+}
+
+func (p *Nautilus) MustScheduleJSON(ctx context.Context,
+	id *string,
+	hookDefinitionID string,
+	tag HookConfigurationTag,
+	payload any) *HookSchedule {
+	schedule, err := p.ScheduleJSON(ctx, id, hookDefinitionID, tag, payload)
+	if err != nil {
+		panic(err)
+	}
+
+	return schedule
+}
+
+func (p *Nautilus) ScheduleJSON(ctx context.Context,
+	id *string,
+	hookDefinitionID string,
+	tag HookConfigurationTag,
+	payload any) (*HookSchedule, error) {
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.Schedule(ctx, id, hookDefinitionID, tag, jsonPayload)
+}
+
 func (p *Nautilus) MustSchedule(ctx context.Context,
 	id *string,
 	hookDefinitionID string,
 	tag HookConfigurationTag,
-	payload json.RawMessage) (*HookSchedule, error) {
+	payload json.RawMessage) *HookSchedule {
 	schedule, err := p.Schedule(ctx, id, hookDefinitionID, tag, payload)
 	if err != nil {
 		panic(err)
 	}
 
-	return schedule, nil
+	return schedule
 }
 
 func (p *Nautilus) Schedule(ctx context.Context,
@@ -105,7 +168,7 @@ func (p *Nautilus) Schedule(ctx context.Context,
 	return schedule, nil
 }
 
-func (p *Nautilus) Execute(ctx context.Context,
+func (p *Nautilus) ScheduleAndExecute(ctx context.Context,
 	id *string,
 	hookDefinitionID string,
 	tag HookConfigurationTag,

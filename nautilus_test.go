@@ -77,3 +77,46 @@ func TestNautilus_Run(t *testing.T) {
 		t.Fatal("Webhook was not called as expected")
 	}
 }
+
+func TestNautilus_TrySchedule(t *testing.T) {
+	errCh := make(chan error, 100)
+	defer close(errCh)
+
+	persister := NewInMemoryPersister()
+	n := New(
+		WithPersister(persister),
+		WithJsonSchemaValidator(NewStandardJsonSchemaValidator()),
+		WithHttpClient(http.DefaultClient),
+		WithWorkersCount(5),
+		WithScheduleBufferSize(100),
+		WithScheduler(NewPollScheduler(persister,
+			WithSkipScheduleInterval(1*time.Second),
+			WithRunnerInterval(100*time.Millisecond))),
+		WithErrCh(errCh))
+
+	err := n.RegisterDefinitions(context.Background(), &HookDefinition{
+		ID:                "on_created",
+		Name:              "on entity created",
+		Description:       "Triggered when an entity is created",
+		PayloadScheme:     json.RawMessage(`{"type": "object", "properties": {"entity_id": {"type": "string", "description": "The ID of the created entity"}}}`),
+		HttpRequestMethod: POST,
+		TotalAttempts:     10,
+	})
+	if err != nil {
+		t.Fatalf("Failed to register definitions: %v", err)
+	}
+
+	if err != nil {
+		t.Fatalf("Failed to register configurations: %v", err)
+	}
+
+	err = n.TryScheduleJSON(context.Background(),
+		ID("single_id"),
+		"on_created",
+		Global,
+		json.RawMessage(`{"entity_id": "example"}`))
+
+	if err != nil {
+		t.Fatalf("Failed to register configurations: %v", err)
+	}
+}

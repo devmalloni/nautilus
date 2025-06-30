@@ -2,6 +2,7 @@ package nautilus
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -557,6 +558,20 @@ func TestSqlPersister_FindHookConfigurations(t *testing.T) {
 
 	if config == nil {
 		t.Fatalf("expected configuration to be non-nil, got nil")
+	}
+}
+
+func TestSqlPersister_FindHookConfiguration_NoRows(t *testing.T) {
+	persister, mock, close := mustCreateTestPersister(t)
+	defer close()
+
+	mock.ExpectQuery(`SELECT (.+) FROM hook_configurations`).
+		WithArgs("foo", "tag").
+		WillReturnError(sql.ErrNoRows)
+
+	_, err := persister.FindHookConfiguration(context.Background(), "foo", HookConfigurationTag("tag"))
+	if err != ErrNotFound {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
