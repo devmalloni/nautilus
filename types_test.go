@@ -177,6 +177,20 @@ func TestHookSchedule_Execute(t *testing.T) {
 			t.Errorf("expected no error reading request body, got %v", err)
 			return
 		}
+		expectedPayload := struct {
+			SentAt *string `json:"sent_at,omitempty"`
+		}{}
+
+		err = json.Unmarshal(bodyBytes, &expectedPayload)
+		if err != nil {
+			t.Error("expected bodyBytes to be unmarshaled")
+			return
+		}
+
+		if expectedPayload.SentAt == nil {
+			t.Error("expected SentAt to be present in the payload, but it was not")
+			return
+		}
 
 		err = verifySignature(bodyBytes, clientSignature, publicKey)
 		if err != nil {
@@ -197,6 +211,96 @@ func TestHookSchedule_Execute(t *testing.T) {
 		HookConfiguration:   hc,
 		HttpRequestMethod:   POST,
 		Status:              HookScheduleStatusScheduled,
+	}
+
+	_, err = hs.Execute(context.Background(), "execution-id", http.DefaultClient)
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+		return
+	}
+
+	if hs.Status != HookScheduleStatusExecuted {
+		t.Errorf("expected status to be %s, got %s", HookScheduleStatusExecuted, hs.Status)
+	}
+
+	if !wasWebhookCalled {
+		t.Error("expected webhook to be called, but it was not")
+		return
+	}
+
+	if !hasClientSecret {
+		t.Error("expected client secret to be sent, but it was not")
+		return
+	}
+}
+
+func TestHookSchedule_Execute_HideExecutionMetadata(t *testing.T) {
+	wasWebhookCalled := false
+	hasClientSecret := false
+	clientSecret := "secret-id"
+
+	hc := &HookConfiguration{
+		ClientSecret: &clientSecret,
+	}
+
+	err := hc.GeneratePrivateKey(false)
+	if err != nil {
+		t.Errorf("expected no error at hc.GeneratePrivateKey, got %v", err)
+		return
+	}
+
+	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		wasWebhookCalled = true
+		hasClientSecret = req.Header.Get(ClientSecretHeader) == "secret-id"
+		clientSignature := req.Header.Get(ClientSignatureHeader)
+
+		publicKey, err := hc.PublicKey()
+		if err != nil {
+			t.Errorf("expected no error getting public key, got %v", err)
+			return
+		}
+
+		bodyBytes, err := io.ReadAll(req.Body)
+		if err != nil {
+			t.Errorf("expected no error reading request body, got %v", err)
+			return
+		}
+
+		expectedPayload := struct {
+			SentAt *string `json:"sent_at,omitempty"`
+		}{}
+
+		err = json.Unmarshal(bodyBytes, &expectedPayload)
+		if err != nil {
+			t.Error("expected bodyBytes to be unmarshaled")
+			return
+		}
+
+		if expectedPayload.SentAt != nil {
+			t.Error("expected SentAt to be nil in the payload, but it was not")
+			return
+		}
+
+		err = verifySignature(bodyBytes, clientSignature, publicKey)
+		if err != nil {
+			t.Errorf("expected no error verifying signature, got %v", err)
+			return
+		}
+
+		res.WriteHeader(200)
+	}))
+	defer func() { testServer.Close() }()
+
+	hs := HookSchedule{
+		ID:                    "schedule-id",
+		HookConfigurationID:   "config-id",
+		URL:                   testServer.URL,
+		Payload:               json.RawMessage(`{"key": "value"}`),
+		MaxAttempt:            3,
+		HookConfiguration:     hc,
+		HttpRequestMethod:     POST,
+		Status:                HookScheduleStatusScheduled,
+		HideExecutionMetadata: true,
 	}
 
 	_, err = hs.Execute(context.Background(), "execution-id", http.DefaultClient)

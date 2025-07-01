@@ -78,6 +78,11 @@ type (
 		* Max attempts system will try to deliver this message to a configuration
 		 */
 		TotalAttempts int `json:"total_attempts,omitempty" yaml:"total_attempts" db:"total_attempts"`
+
+		/*
+		* Specifies if payload must be sent in raw or if it will be included in execution metadata (e.g. sent at, definition id and unique execution id)
+		 */
+		HideExecutionMetadata bool `json:"hide_execution_metadata,omitempty" yaml:"hide_execution_metadata" db:"hide_execution_metadata"`
 	}
 
 	HookConfiguration struct {
@@ -102,8 +107,9 @@ type (
 		Payload             json.RawMessage    `json:"payload,omitempty" db:"payload"`
 		Status              HookScheduleStatus `json:"status,omitempty" db:"status"`
 
-		MaxAttempt     int `json:"max_attempt,omitempty" db:"max_attempt"`
-		CurrentAttempt int `json:"current_attempt,omitempty" db:"current_attempt"`
+		MaxAttempt            int  `json:"max_attempt,omitempty" db:"max_attempt"`
+		CurrentAttempt        int  `json:"current_attempt,omitempty" db:"current_attempt"`
+		HideExecutionMetadata bool `json:"hide_execution_metadata,omitempty" db:"hide_execution_metadata"`
 
 		CreatedAt time.Time  `json:"created_at,omitempty" db:"created_at"`
 		UpdatedAt *time.Time `json:"updated_at,omitempty" db:"updated_at"`
@@ -194,16 +200,17 @@ func (p *HookConfiguration) Schedule(id string, payload json.RawMessage, validat
 	}
 
 	s := &HookSchedule{
-		ID:                  id,
-		HookConfigurationID: p.ID,
-		URL:                 p.URL,
-		Payload:             payload,
-		HttpRequestMethod:   p.HookDefinition.HttpRequestMethod,
-		Status:              HookScheduleStatusScheduled,
-		MaxAttempt:          p.HookDefinition.TotalAttempts,
-		HookConfiguration:   p,
-		CurrentAttempt:      0,
-		CreatedAt:           time.Now().UTC(),
+		ID:                    id,
+		HookConfigurationID:   p.ID,
+		URL:                   p.URL,
+		Payload:               payload,
+		HttpRequestMethod:     p.HookDefinition.HttpRequestMethod,
+		Status:                HookScheduleStatusScheduled,
+		MaxAttempt:            p.HookDefinition.TotalAttempts,
+		HideExecutionMetadata: p.HookDefinition.HideExecutionMetadata,
+		HookConfiguration:     p,
+		CurrentAttempt:        0,
+		CreatedAt:             time.Now().UTC(),
 	}
 
 	if err := s.IsValid(); err != nil {
@@ -280,14 +287,7 @@ func (p *HookSchedule) Execute(ctx context.Context, executionID string, client *
 		CreatedAt:       time.Now().UTC(),
 	}
 
-	requestData := HookExecutionData{
-		ID:               e.HookScheduleID,
-		SentAt:           time.Now().UTC(),
-		HookDefinitionID: p.HookConfiguration.HookDefinitionID,
-		Data:             p.Payload,
-	}
-
-	b, err := json.Marshal(&requestData)
+	b, err := p.createExecutionData(e)
 	if err != nil {
 		return nil, err
 	}
@@ -336,6 +336,27 @@ func (p *HookSchedule) Execute(ctx context.Context, executionID string, client *
 	p.UpdatedAt = x.NilTime(time.Now().UTC())
 
 	return e, nil
+}
+
+func (p *HookSchedule) createExecutionData(e *HookExecution) ([]byte, error) {
+	var requestData any
+	if p.HideExecutionMetadata {
+		requestData = p.Payload
+	} else {
+		requestData = HookExecutionData{
+			ID:               e.HookScheduleID,
+			SentAt:           time.Now().UTC(),
+			HookDefinitionID: p.HookConfiguration.HookDefinitionID,
+			Data:             p.Payload,
+		}
+	}
+
+	b, err := json.Marshal(&requestData)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }
 
 // SignBody signs the body using SHA256 and RSA.
