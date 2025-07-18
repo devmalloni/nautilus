@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/devmalloni/nautilus/x"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -133,7 +134,7 @@ func TestSqlPersister_FindHookSchedulesByID(t *testing.T) {
 		ID:              "execution-id",
 		HookScheduleID:  id,
 		ResponseStatus:  http.StatusOK,
-		ResponsePayload: json.RawMessage(`{"response":"ok"}`),
+		ResponsePayload: x.NullString(`{"response":"ok"}`),
 		CreatedAt:       now,
 	}
 
@@ -296,8 +297,8 @@ func TestSqlPersister_WriteHookSchedule(t *testing.T) {
 		ID:              "execution-id",
 		HookScheduleID:  schedule.ID,
 		ResponseStatus:  http.StatusOK,
-		RequestPayload:  json.RawMessage(`{"response":"ok"}`),
-		ResponsePayload: json.RawMessage(`{"response":"ok"}`),
+		RequestPayload:  x.NullString(`{"response":"ok"}`),
+		ResponsePayload: x.NullString(`{"response":"ok"}`),
 		CreatedAt:       now,
 	}
 

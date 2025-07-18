@@ -120,8 +120,8 @@ type (
 	HookExecution struct {
 		ID              string    `json:"id,omitempty" db:"id"`
 		HookScheduleID  string    `json:"hook_schedule_id,omitempty" db:"hook_schedule_id"`
-		RequestPayload  string    `json:"request_payload,omitempty" db:"request_payload"`
-		ResponsePayload string    `json:"response_payload,omitempty" db:"response_payload"`
+		RequestPayload  *string   `json:"request_payload,omitempty" db:"request_payload"`
+		ResponsePayload *string   `json:"response_payload,omitempty" db:"response_payload"`
 		ResponseStatus  int       `json:"response_status,omitempty" db:"response_status"`
 		CreatedAt       time.Time `json:"created_at,omitempty" db:"created_at"`
 	}
@@ -283,7 +283,7 @@ func (p *HookSchedule) Execute(ctx context.Context, executionID string, client *
 		ID:              executionID,
 		HookScheduleID:  p.ID,
 		ResponseStatus:  0,
-		ResponsePayload: "",
+		ResponsePayload: nil,
 		CreatedAt:       time.Now().UTC(),
 	}
 
@@ -292,7 +292,8 @@ func (p *HookSchedule) Execute(ctx context.Context, executionID string, client *
 		return nil, err
 	}
 
-	e.RequestPayload = string(b)
+	requestPayload := string(b)
+	e.RequestPayload = &requestPayload
 
 	buff := bytes.NewBuffer(b)
 	req, err := http.NewRequestWithContext(ctx,
@@ -323,11 +324,13 @@ func (p *HookSchedule) Execute(ctx context.Context, executionID string, client *
 
 	e.ResponseStatus = resp.StatusCode
 	responseBytes, err := io.ReadAll(resp.Body)
+	var responsePayload string
 	if err != nil {
-		e.ResponsePayload = fmt.Sprintf("unable to retrieve json response: %v", err)
+		responsePayload = fmt.Sprintf("unable to retrieve json response: %v", err)
 	} else {
-		e.ResponsePayload = string(responseBytes)
+		responsePayload = string(responseBytes)
 	}
+	e.ResponsePayload = &responsePayload
 
 	p.CurrentAttempt++
 	if resp.StatusCode == http.StatusOK {
