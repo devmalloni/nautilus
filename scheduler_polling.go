@@ -51,11 +51,11 @@ func (p *PollScheduler) Start(ctx context.Context, scheduleCh chan *HookSchedule
 			}
 
 			for i := range schedules {
-				if schedules[i].UpdatedAt != nil && schedules[i].UpdatedAt.UTC().Before(now.Add(-p.skipScheduleInterval)) {
-					continue
+				if schedules[i].CurrentAttempt == 0 ||
+					schedules[i].UpdatedAt == nil ||
+					schedules[i].UpdatedAt.UTC().Before(now.Add(-p.skipScheduleInterval)) {
+					scheduleCh <- schedules[i]
 				}
-
-				scheduleCh <- schedules[i]
 			}
 		}
 	}
