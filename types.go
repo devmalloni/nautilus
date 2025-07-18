@@ -118,12 +118,12 @@ type (
 	}
 
 	HookExecution struct {
-		ID              string          `json:"id,omitempty" db:"id"`
-		HookScheduleID  string          `json:"hook_schedule_id,omitempty" db:"hook_schedule_id"`
-		RequestPayload  json.RawMessage `json:"request_payload,omitempty" db:"request_payload"`
-		ResponsePayload json.RawMessage `json:"response_payload,omitempty" db:"response_payload"`
-		ResponseStatus  int             `json:"response_status,omitempty" db:"response_status"`
-		CreatedAt       time.Time       `json:"created_at,omitempty" db:"created_at"`
+		ID              string    `json:"id,omitempty" db:"id"`
+		HookScheduleID  string    `json:"hook_schedule_id,omitempty" db:"hook_schedule_id"`
+		RequestPayload  string    `json:"request_payload,omitempty" db:"request_payload"`
+		ResponsePayload string    `json:"response_payload,omitempty" db:"response_payload"`
+		ResponseStatus  int       `json:"response_status,omitempty" db:"response_status"`
+		CreatedAt       time.Time `json:"created_at,omitempty" db:"created_at"`
 	}
 
 	HookExecutionData struct {
@@ -283,7 +283,7 @@ func (p *HookSchedule) Execute(ctx context.Context, executionID string, client *
 		ID:              executionID,
 		HookScheduleID:  p.ID,
 		ResponseStatus:  0,
-		ResponsePayload: nil,
+		ResponsePayload: "",
 		CreatedAt:       time.Now().UTC(),
 	}
 
@@ -292,7 +292,7 @@ func (p *HookSchedule) Execute(ctx context.Context, executionID string, client *
 		return nil, err
 	}
 
-	e.RequestPayload = b
+	e.RequestPayload = string(b)
 
 	buff := bytes.NewBuffer(b)
 	req, err := http.NewRequestWithContext(ctx,
@@ -324,9 +324,9 @@ func (p *HookSchedule) Execute(ctx context.Context, executionID string, client *
 	e.ResponseStatus = resp.StatusCode
 	responseBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		e.ResponsePayload = json.RawMessage(fmt.Sprintf("unable to retrieve json response: %v", err))
+		e.ResponsePayload = fmt.Sprintf("unable to retrieve json response: %v", err)
 	} else {
-		e.ResponsePayload = json.RawMessage(responseBytes)
+		e.ResponsePayload = string(responseBytes)
 	}
 
 	p.CurrentAttempt++
