@@ -120,8 +120,9 @@ type (
 	HookExecution struct {
 		ID              string          `json:"id,omitempty" db:"id"`
 		HookScheduleID  string          `json:"hook_schedule_id,omitempty" db:"hook_schedule_id"`
-		ResponseStatus  int             `json:"response_status,omitempty" db:"response_status"`
+		RequestPayload  json.RawMessage `json:"request_payload,omitempty" db:"request_payload"`
 		ResponsePayload json.RawMessage `json:"response_payload,omitempty" db:"response_payload"`
+		ResponseStatus  int             `json:"response_status,omitempty" db:"response_status"`
 		CreatedAt       time.Time       `json:"created_at,omitempty" db:"created_at"`
 	}
 
@@ -254,7 +255,6 @@ func (p *HookConfiguration) GeneratePrivateKey(override bool) error {
 }
 
 func (p *HookSchedule) IsValid() error {
-
 	if p.HookConfigurationID == "" {
 		return errors.New("hook configuration id is required")
 	}
@@ -291,6 +291,8 @@ func (p *HookSchedule) Execute(ctx context.Context, executionID string, client *
 	if err != nil {
 		return nil, err
 	}
+
+	e.RequestPayload = b
 
 	buff := bytes.NewBuffer(b)
 	req, err := http.NewRequestWithContext(ctx,

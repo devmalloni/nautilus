@@ -296,6 +296,7 @@ func TestSqlPersister_WriteHookSchedule(t *testing.T) {
 		ID:              "execution-id",
 		HookScheduleID:  schedule.ID,
 		ResponseStatus:  http.StatusOK,
+		RequestPayload:  json.RawMessage(`{"response":"ok"}`),
 		ResponsePayload: json.RawMessage(`{"response":"ok"}`),
 		CreatedAt:       now,
 	}
@@ -311,6 +312,7 @@ func TestSqlPersister_WriteHookSchedule(t *testing.T) {
 			schedule.Status,
 			schedule.MaxAttempt,
 			schedule.CurrentAttempt,
+			schedule.HideExecutionMetadata,
 			schedule.CreatedAt,
 			schedule.UpdatedAt).
 		WillReturnResult(sqlmock.NewResult(1, 1))
@@ -320,6 +322,7 @@ func TestSqlPersister_WriteHookSchedule(t *testing.T) {
 			execution.ID,
 			execution.HookScheduleID,
 			execution.ResponseStatus,
+			execution.RequestPayload,
 			execution.ResponsePayload,
 			execution.CreatedAt,
 		).

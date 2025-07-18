@@ -51,6 +51,9 @@ func (p *SqlPersister) FindHookSchedulesByID(ctx context.Context, id string) (*H
 	hookSchedule := &HookSchedule{}
 	err := p.db.GetContext(ctx, hookSchedule, "SELECT * FROM hook_schedules WHERE id = $1", id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil, ErrNotFound
+		}
 		return nil, nil, err
 	}
 
@@ -92,10 +95,10 @@ func (p *SqlPersister) FindScheduledHookSchedules(ctx context.Context) ([]*HookS
 func (p *SqlPersister) WriteHookSchedule(ctx context.Context, c *HookSchedule, e ...*HookExecution) error {
 	tx := p.db.MustBeginTx(ctx, nil)
 	_, err := tx.NamedExecContext(ctx,
-		`INSERT INTO hook_schedules (id, hook_configuration_id, http_request_method, url, payload, status, max_attempt, current_attempt, created_at, updated_at)
-			VALUES 					(:id, :hook_configuration_id, :http_request_method, :url, :payload, :status, :max_attempt, :current_attempt, :created_at, :updated_at)
-			ON CONFLICT (id) 
-			DO UPDATE SET status = excluded.status , current_attempt = excluded.current_attempt, updated_at = excluded.updated_at;`, c)
+		`INSERT INTO hook_schedules (id, hook_configuration_id, http_request_method, url, payload, status, max_attempt, current_attempt, hide_execution_metadata, created_at, updated_at)
+			VALUES 					(:id, :hook_configuration_id, :http_request_method, :url, :payload, :status, :max_attempt, :current_attempt, :hide_execution_metadata, :created_at, :updated_at)
+			ON CONFLICT (id)
+			DO UPDATE SET status = excluded.status , current_attempt = excluded.current_attempt, hide_execution_metadata = excluded.hide_execution_metadata, updated_at = excluded.updated_at;`, c)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -103,8 +106,8 @@ func (p *SqlPersister) WriteHookSchedule(ctx context.Context, c *HookSchedule, e
 
 	for _, execution := range e {
 		_, err := tx.NamedExecContext(ctx,
-			`INSERT INTO hook_executions (id, hook_schedule_id, response_status, response_payload, created_at) 
-			VALUES (:id, :hook_schedule_id, :response_status, :response_payload, :created_at)`, execution)
+			`INSERT INTO hook_executions (id, hook_schedule_id, response_status, request_payload, response_payload, created_at) 
+			VALUES (:id, :hook_schedule_id, :response_status, :request_payload, :response_payload, :created_at)`, execution)
 		if err != nil {
 			tx.Rollback()
 			return err
